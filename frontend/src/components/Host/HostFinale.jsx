@@ -19,14 +19,14 @@ export function HostFinale({ onReplay }) {
     <div
       className="screen bg-bfiw-dark bfiw-screen fade"
       style={{
-        padding: '4vh 4vw',
+        padding: '4vh 4vw 60px',
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
-        overflow: 'hidden',
+        overflowY: 'auto',
       }}
     >
       <Petals count={26} />

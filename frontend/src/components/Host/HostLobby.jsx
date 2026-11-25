@@ -10,11 +10,12 @@ export function HostLobby({ state, onBegin, onStartVoting, onKickPlayer }) {
     <div
       className="screen bg-bfiw-ivory bfiw-screen fade"
       style={{
-        padding: '4vh 5vw',
+        padding: '3vh 5vw 60px',
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         boxSizing: 'border-box',
+        overflowY: 'auto',
       }}
     >
       {/* Header */}

@@ -11,11 +11,12 @@ export function HostGallery({ state, onAdvance, onStartVoting }) {
     <div
       className="screen bg-bfiw-ivory bfiw-screen fade"
       style={{
-        padding: '2.5vh 3vw',
+        padding: '2.5vh 3vw 60px',
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         boxSizing: 'border-box',
+        overflowY: 'auto',
       }}
     >
       {/* Top Header */}

@@ -26,11 +26,12 @@ export function HostResults({ state, onNext }) {
     <div
       className="screen bg-bfiw-ivory bfiw-screen fade"
       style={{
-        padding: '3vh 4vw',
+        padding: '3vh 4vw 60px',
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         boxSizing: 'border-box',
+        overflowY: 'auto',
       }}
     >
       {/* Header */}

@@ -25,18 +25,44 @@
 
 /* ── Reset ────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; overflow: hidden; }
+html, body {
+  min-height: 100%;
+  height: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
 body {
   font-family: 'Nunito', sans-serif;
   color: var(--ink);
   background: var(--crimson-dk);
   -webkit-font-smoothing: antialiased;
 }
-#root { height: 100vh; width: 100vw; }
+#root {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
 
 /* ── Stage / screens ──────────────────────────────────── */
-.stage  { position: relative; height: 100vh; width: 100vw; overflow: hidden; }
-.screen { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.stage  {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.screen {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
 .screen.fade { animation: fadeUp .45s ease both; }
 @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
 
@@ -81,8 +107,9 @@ body {
 .bfiw-screen::before,
 .bfiw-screen::after {
   content: '';
-  position: absolute; left: 0; right: 0;
-  height: 14px; z-index: 20;
+  position: fixed; left: 0; right: 0;
+  height: 10px; z-index: 100;
+  pointer-events: none;
   background: repeating-linear-gradient(90deg,
     #fbbf24  0px, #fbbf24   8px,
     #9b1c1c  8px, #9b1c1c  16px,

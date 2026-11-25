@@ -43,24 +43,25 @@ export function HostVoting({ state, onForceClose, onKickPlayer, onPurgeUnlocked 
     <div
       className="screen bg-bfiw-ivory bfiw-screen fade"
       style={{
-        padding: '3vh 4vw',
+        padding: '20px 3vw 60px',
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
         boxSizing: 'border-box',
+        overflowY: 'auto',
       }}
     >
       {/* Header: Displays the Question Big & Clear on Host Screen */}
-      <div style={{ textAlign: 'center', marginBottom: 20 }}>
-        <div className="caps" style={{ fontSize: '.75rem', color: '#b45309', letterSpacing: '0.15em' }}>
+      <div style={{ textAlign: 'center', marginBottom: 12 }}>
+        <div className="caps" style={{ fontSize: '.7rem', color: '#b45309', letterSpacing: '0.15em' }}>
           Round {round.number} of {ROUNDS.length} · Live Question
         </div>
         <h1
           className="display"
           style={{
-            fontSize: 'clamp(2.6rem, 5.5vw, 4.4rem)',
+            fontSize: 'clamp(2rem, 3.8vw, 3.2rem)',
             color: '#9b1c1c',
-            marginTop: 4,
+            marginTop: 2,
             lineHeight: 1.05,
           }}
         >
@@ -70,11 +71,11 @@ export function HostVoting({ state, onForceClose, onKickPlayer, onPurgeUnlocked 
           className="serif ital"
           style={{
             color: '#78350f',
-            fontSize: '1.35rem',
+            fontSize: '1.05rem',
             whiteSpace: 'pre-line',
-            marginTop: 6,
-            maxWidth: 800,
-            margin: '6px auto 0',
+            marginTop: 4,
+            maxWidth: 750,
+            margin: '4px auto 0',
           }}
         >
           {round.subtitle}
@@ -82,25 +83,25 @@ export function HostVoting({ state, onForceClose, onKickPlayer, onPurgeUnlocked 
       </div>
 
       {/* Center Layout: Suitor Cards on Left, Player Lock Status on Right */}
-      <div style={{ flex: 1, display: 'flex', gap: 24, alignItems: 'stretch' }}>
+      <div style={{ flex: 1, display: 'flex', gap: 20, alignItems: 'flex-start' }}>
         {/* Suitors overview with Full Portrait Images */}
-        <div style={{ flex: '1 1 auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        <div style={{ flex: '1 1 auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
           {SUITORS.map((s) => (
             <div
               key={s.id}
               style={{
-                borderRadius: 16,
+                borderRadius: 14,
                 background: s.cardBg,
                 color: '#fff',
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
                 border: `2px solid ${s.accent}88`,
-                boxShadow: `0 6px 20px ${s.accent}25`,
+                boxShadow: `0 4px 16px ${s.accent}25`,
               }}
             >
               {/* Suitor Portrait Image */}
-              <div style={{ height: 130, position: 'relative', overflow: 'hidden', background: '#1a0505' }}>
+              <div style={{ height: 'clamp(85px, 11vh, 110px)', position: 'relative', overflow: 'hidden', background: '#1a0505' }}>
                 <img
                   src={s.portraitM}
                   alt={s.name}
@@ -125,20 +126,20 @@ export function HostVoting({ state, onForceClose, onKickPlayer, onPurgeUnlocked 
                 <div
                   style={{
                     position: 'absolute',
-                    bottom: 8,
-                    left: 10,
-                    right: 10,
+                    bottom: 6,
+                    left: 8,
+                    right: 8,
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
                   }}
                 >
-                  <span style={{ fontSize: '1.4rem' }}>{s.monogram}</span>
+                  <span style={{ fontSize: '1.2rem' }}>{s.monogram}</span>
                   <span
                     style={{
-                      fontSize: '0.7rem',
+                      fontSize: '0.65rem',
                       background: `${s.accent}ee`,
-                      padding: '2px 8px',
+                      padding: '2px 7px',
                       borderRadius: 6,
                       fontWeight: 800,
                     }}
@@ -149,16 +150,16 @@ export function HostVoting({ state, onForceClose, onKickPlayer, onPurgeUnlocked 
               </div>
 
               {/* Suitor Info */}
-              <div style={{ padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div style={{ padding: '8px 12px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#fde68a', lineHeight: 1.2 }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#fde68a', lineHeight: 1.2 }}>
                     {s.name}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: s.accentLt, marginTop: 2 }}>
+                  <div style={{ fontSize: '0.7rem', color: s.accentLt, marginTop: 1 }}>
                     {s.profession}
                   </div>
                 </div>
-                <div style={{ marginTop: 8, fontSize: '0.8rem', fontStyle: 'italic', opacity: 0.9 }}>
+                <div style={{ marginTop: 6, fontSize: '0.74rem', fontStyle: 'italic', opacity: 0.9 }}>
                   "{s.tagline}"
                 </div>
               </div>
@@ -169,30 +170,32 @@ export function HostVoting({ state, onForceClose, onKickPlayer, onPurgeUnlocked 
         {/* Voting Status Panel: Locks count & live guest statuses */}
         <div
           style={{
-            flex: '0 0 340px',
+            flex: '0 0 310px',
             background: '#fff',
-            borderRadius: 20,
-            padding: '24px',
+            borderRadius: 18,
+            padding: '18px 20px',
             display: 'flex',
             flexDirection: 'column',
             boxShadow: '0 10px 35px rgba(0,0,0,0.08)',
             border: allLocked ? '2px solid #059669' : '2px solid rgba(251,191,36,0.4)',
             transition: 'border 0.3s ease',
+            position: 'sticky',
+            top: 20,
           }}
         >
-          <div style={{ textAlign: 'center', marginBottom: 14 }}>
+          <div style={{ textAlign: 'center', marginBottom: 10 }}>
             <div
               className="display"
               style={{
-                fontSize: '3.6rem',
+                fontSize: '2.8rem',
                 color: allLocked ? '#059669' : '#9b1c1c',
                 fontWeight: 700,
                 lineHeight: 1,
               }}
             >
-              {voteCount} <span style={{ fontSize: '1.8rem', color: '#888' }}>/ {totalPlayers}</span>
+              {voteCount} <span style={{ fontSize: '1.4rem', color: '#888' }}>/ {totalPlayers}</span>
             </div>
-            <div className="caps" style={{ fontSize: '0.75rem', color: '#78350f', marginTop: 4, fontWeight: 800 }}>
+            <div className="caps" style={{ fontSize: '0.7rem', color: '#78350f', marginTop: 4, fontWeight: 800 }}>
               {allLocked ? 'ALL GUESTS LOCKED! 🎉' : 'GUESTS LOCKED'}
             </div>
           </div>
@@ -200,11 +203,11 @@ export function HostVoting({ state, onForceClose, onKickPlayer, onPurgeUnlocked 
           {/* List of Players with Animated Lock Reaction */}
           <div
             style={{
-              flex: 1,
+              maxHeight: '220px',
               overflowY: 'auto',
               display: 'flex',
               flexDirection: 'column',
-              gap: 8,
+              gap: 7,
               paddingRight: 4,
             }}
           >
