@@ -3,9 +3,11 @@ import confetti from 'canvas-confetti';
 import { ROUNDS, SUITORS } from '../../gameData.js';
 import { socket } from '../../socket.js';
 
-export function HostVoting({ state, onForceClose }) {
-  const round = ROUNDS[state?.roundIndex || 0];
-  const players = Object.values(state?.players || {});
+export function HostVoting({ state, onForceClose, onKickPlayer, onPurgeUnlocked }) {
+  const round = ROUNDS[state?.roundIndex || 0] || ROUNDS[0];
+  const rawPlayers = Object.values(state?.players || {});
+  // Safe filtering: protect against corrupt/null player objects
+  const players = rawPlayers.filter((p) => p && p.id);
   const roundVotes = (state?.votes || {})[round.id] || {};
   const voteCount = Object.keys(roundVotes).length;
   const totalPlayers = players.length;
@@ -226,7 +228,7 @@ export function HostVoting({ state, onForceClose }) {
                     transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                     <div
                       style={{
                         width: 32,
@@ -246,74 +248,114 @@ export function HostVoting({ state, onForceClose }) {
                         <span style={{ fontSize: '1rem' }}>{p.titleEmoji || '👤'}</span>
                       )}
                     </div>
-                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1a0505' }}>
-                      {p.displayName || p.name}
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        fontSize: '0.9rem',
+                        color: '#1a0505',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: 140,
+                      }}
+                    >
+                      {p.displayName || p.name || 'Guest'}
                     </span>
                   </div>
 
-                  {hasLocked ? (
-                    <span
-                      style={{
-                        fontSize: '0.78rem',
-                        fontWeight: 800,
-                        color: '#059669',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}
-                    >
-                      🔒 Locked {isJustNow && '✨'}
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: '0.75rem', color: '#b45309', fontStyle: 'italic' }}>
-                      Thinking…
-                    </span>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {hasLocked ? (
+                      <span
+                        style={{
+                          fontSize: '0.78rem',
+                          fontWeight: 800,
+                          color: '#059669',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        }}
+                      >
+                        🔒 Locked {isJustNow && '✨'}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.75rem', color: '#b45309', fontStyle: 'italic' }}>
+                        Thinking…
+                      </span>
+                    )}
+
+                    {/* Host Kick Button */}
+                    {onKickPlayer && (
+                      <button
+                        type="button"
+                        onClick={() => onKickPlayer(p.id)}
+                        title={`Remove fake user ${p.displayName || p.name}`}
+                        style={{
+                          background: 'rgba(239,68,68,0.1)',
+                          border: '1px solid rgba(239,68,68,0.25)',
+                          color: '#ef4444',
+                          borderRadius: 6,
+                          width: 22,
+                          height: 22,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.7rem',
+                          fontWeight: 900,
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
           </div>
 
-          {/* Strict Gating: Next button is DISABLED until all users lock! */}
+          {/* Action buttons */}
           <div style={{ marginTop: 16 }}>
             <button
               className="btn-wedding"
               onClick={onForceClose}
-              disabled={!allLocked}
               style={{
                 width: '100%',
                 padding: '14px',
                 fontSize: '1.05rem',
-                background: allLocked ? '#059669' : '#9ca3af',
-                cursor: allLocked ? 'pointer' : 'not-allowed',
-                boxShadow: allLocked ? '0 6px 20px rgba(5,150,105,0.4)' : 'none',
-                opacity: allLocked ? 1 : 0.65,
+                background: allLocked ? '#059669' : '#d97706',
+                cursor: 'pointer',
+                boxShadow: allLocked
+                  ? '0 6px 20px rgba(5,150,105,0.4)'
+                  : '0 6px 20px rgba(217,119,6,0.3)',
                 transition: 'all 0.3s ease',
               }}
             >
               {allLocked
                 ? 'Reveal Results 🎊'
-                : `Waiting for all (${voteCount}/${totalPlayers}) to lock… ⏳`}
+                : `Reveal Results (${voteCount}/${totalPlayers} Ready) ➔`}
             </button>
 
-            {/* Emergency override link if a student disconnected */}
-            {!allLocked && totalPlayers > 0 && voteCount > 0 && (
-              <div style={{ textAlign: 'center', marginTop: 8 }}>
-                <button
-                  type="button"
-                  onClick={onForceClose}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#999',
-                    fontSize: '0.72rem',
-                    textDecoration: 'underline',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Override & Reveal Now (if a phone died)
-                </button>
-              </div>
+            {/* Quick Inactive Ghost Purge Button */}
+            {!allLocked && totalPlayers > voteCount && onPurgeUnlocked && (
+              <button
+                type="button"
+                onClick={onPurgeUnlocked}
+                style={{
+                  marginTop: 8,
+                  width: '100%',
+                  padding: '8px 12px',
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px dashed #ef4444',
+                  color: '#dc2626',
+                  borderRadius: 10,
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                🧹 Remove Inactive Guests ({totalPlayers - voteCount} haven't locked)
+              </button>
             )}
           </div>
         </div>

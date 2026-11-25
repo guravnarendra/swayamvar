@@ -1,8 +1,9 @@
 import React from 'react';
 import { QRCodeCard } from '../Common/QRCodeCard.jsx';
 
-export function HostLobby({ state, onBegin, onStartVoting }) {
-  const players = Object.values(state?.players || {});
+export function HostLobby({ state, onBegin, onStartVoting, onKickPlayer }) {
+  const rawPlayers = Object.values(state?.players || {});
+  const players = rawPlayers.filter((p) => p && p.id);
   const roomCode = state?.roomCode || '1995';
 
   return (
@@ -113,42 +114,78 @@ export function HostLobby({ state, onBegin, onStartVoting }) {
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 14,
+                    justifyContent: 'space-between',
                     padding: '8px 14px',
                     borderRadius: 14,
                     background: '#faf5f0',
                     border: `1.5px solid ${p.color || '#fbbf24'}44`,
                   }}
                 >
-                  <div
-                    style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: '50%',
-                      overflow: 'hidden',
-                      flexShrink: 0,
-                      background: p.color || '#9b1c1c',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {p.titleImg ? (
-                      <img src={p.titleImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      <span style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 700 }}>
-                        {p.titleEmoji || p.name?.[0] || '👤'}
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 700, color: '#1a0505', fontSize: '0.95rem' }}>
-                      {p.displayName || p.name}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: '50%',
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                        background: p.color || '#9b1c1c',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {p.titleImg ? (
+                        <img src={p.titleImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <span style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 700 }}>
+                          {p.titleEmoji || p.name?.[0] || '👤'}
+                        </span>
+                      )}
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#78350f', fontStyle: 'italic' }}>
-                      {p.titleAction || 'has entered the room'}
+                    <div style={{ minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          color: '#1a0505',
+                          fontSize: '0.95rem',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          maxWidth: 220,
+                        }}
+                      >
+                        {p.displayName || p.name || 'Guest'}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#78350f', fontStyle: 'italic' }}>
+                        {p.titleAction || 'has entered the room'}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Kick fake user button */}
+                  {onKickPlayer && (
+                    <button
+                      type="button"
+                      onClick={() => onKickPlayer(p.id)}
+                      title={`Remove ${p.displayName || p.name}`}
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                        color: '#ef4444',
+                        borderRadius: 8,
+                        padding: '4px 8px',
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      ✕ Remove
+                    </button>
+                  )}
                 </div>
               ))
             )}

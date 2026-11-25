@@ -131,6 +131,21 @@ async function persistRoomState(roomState) {
   }
 }
 
+// Debounce Supabase writes per room so spamming joins/votes doesn't flood the DB
+const persistTimers = new Map();
+function schedulePersistRoomState(roomState) {
+  if (!roomState || !roomState.roomCode) return;
+  const code = roomState.roomCode;
+  if (persistTimers.has(code)) {
+    clearTimeout(persistTimers.get(code));
+  }
+  const timer = setTimeout(() => {
+    persistTimers.delete(code);
+    persistRoomState(roomState);
+  }, 400);
+  persistTimers.set(code, timer);
+}
+
 // Persist individual vote to the 'votes' table (one clean row per vote)
 async function persistIndividualVote(roomCode, playerId, playerName, roundId, suitorId) {
   if (!db) return;
@@ -338,16 +353,102 @@ io.on('connection', (socket) => {
     const room = await getOrCreateRoom(roomCode || currentRoom);
     if (!player || !player.id) return;
 
-    room.players[player.id] = {
-      ...player,
+    // Protection 1: Max 80 players per room
+    const MAX_PLAYERS = 80;
+    const currentCount = Object.keys(room.players || {}).length;
+    if (!room.players[player.id] && currentCount >= MAX_PLAYERS) {
+      socket.emit('player_error', { message: 'This room has reached max capacity (80 guests).' });
+      return;
+    }
+
+    // Protection 2: Anti-Duplicate Device Enforcement (1 Player per Device)
+    // If this device already registered a player in this room with an older ID,
+    // remove the previous ghost player to prevent duplicate fake users!
+    room.devicePlayers = room.devicePlayers || {};
+    const existingPlayerId = room.devicePlayers[deviceId];
+    if (existingPlayerId && existingPlayerId !== player.id && room.players[existingPlayerId]) {
+      console.log(`[Anti-Spam] Device ${deviceId} replaced older ghost player ${existingPlayerId} with ${player.id}`);
+      delete room.players[existingPlayerId];
+      // Clean up previous ghost votes
+      Object.keys(room.votes || {}).forEach((rId) => {
+        delete room.votes[rId]?.[existingPlayerId];
+      });
+    }
+    room.devicePlayers[deviceId] = player.id;
+
+    // Protection 3: Data Sanitization (protects React from corrupted props)
+    const sanitizedPlayer = {
+      id: String(player.id).substring(0, 50),
+      name: String(player.name || 'Guest').trim().substring(0, 24),
+      displayName: String(player.displayName || player.name || 'Guest').trim().substring(0, 32),
+      color: String(player.color || '#9b1c1c').substring(0, 16),
+      gender: player.gender === 'M' || player.gender === 'F' ? player.gender : 'P',
+      titleEmoji: String(player.titleEmoji || '👤').substring(0, 8),
+      titleAction: String(player.titleAction || 'has entered the Swayamvar').substring(0, 60),
+      titleImg: typeof player.titleImg === 'string' ? player.titleImg.substring(0, 200) : '',
       joinedAt: Date.now(),
     };
+
+    room.players[sanitizedPlayer.id] = sanitizedPlayer;
     room.lastActivityAt = Date.now();
 
-    console.log(`[Join] Player "${player.displayName || player.name}" (${player.id}) entered room ${room.roomCode}`);
+    console.log(`[Join] Player "${sanitizedPlayer.displayName}" (${sanitizedPlayer.id}) entered room ${room.roomCode} (Total: ${Object.keys(room.players).length})`);
     io.to(room.roomCode).emit('state_update', room);
-    io.to(room.roomCode).emit('player_joined_event', player);
-    await persistRoomState(room);
+    io.to(room.roomCode).emit('player_joined_event', sanitizedPlayer);
+    schedulePersistRoomState(room);
+  });
+
+  // Host: Kick a specific fake/inactive player
+  socket.on('host_kick_player', async ({ roomCode, playerId }) => {
+    const room = await getOrCreateRoom(roomCode || currentRoom);
+    if (!room || !playerId || !room.players[playerId]) return;
+
+    const kickedName = room.players[playerId].displayName || room.players[playerId].name;
+    delete room.players[playerId];
+
+    // Clean up any votes cast by this player in any round
+    Object.keys(room.votes || {}).forEach((rId) => {
+      if (room.votes[rId]?.[playerId]) {
+        delete room.votes[rId][playerId];
+      }
+    });
+
+    // Clean up device mapping
+    if (room.devicePlayers) {
+      for (const [dId, pId] of Object.entries(room.devicePlayers)) {
+        if (pId === playerId) delete room.devicePlayers[dId];
+      }
+    }
+
+    room.lastActivityAt = Date.now();
+    console.log(`👢 [Host Kick] Kicked player "${kickedName}" (${playerId}) from room ${room.roomCode}`);
+
+    io.to(room.roomCode).emit('state_update', room);
+    io.to(room.roomCode).emit('player_kicked_event', { playerId, name: kickedName });
+    schedulePersistRoomState(room);
+  });
+
+  // Host: Purge all inactive guests who haven't locked in the current round
+  socket.on('host_purge_unlocked', async ({ roomCode }) => {
+    const room = await getOrCreateRoom(roomCode || currentRoom);
+    if (!room) return;
+
+    const roundIds = ['marry', 'date', 'mum', 'emergency'];
+    const currentRoundId = roundIds[room.roundIndex || 0] || 'marry';
+    const currentVotes = room.votes[currentRoundId] || {};
+
+    let purgedCount = 0;
+    Object.keys(room.players).forEach((pId) => {
+      if (!currentVotes[pId]) {
+        delete room.players[pId];
+        purgedCount++;
+      }
+    });
+
+    room.lastActivityAt = Date.now();
+    console.log(`🧹 [Host Purge] Purged ${purgedCount} unlocked/ghost player(s) from room ${room.roomCode}`);
+    io.to(room.roomCode).emit('state_update', room);
+    schedulePersistRoomState(room);
   });
 
   // Player casts and locks vote
@@ -438,20 +539,6 @@ io.on('connection', (socket) => {
   socket.on('host_close_voting', async ({ roomCode, force }) => {
     const room = await getOrCreateRoom(roomCode || currentRoom);
     
-    // GATING: Ensure all players locked unless host explicitly forces
-    const roundIds = ['marry', 'date', 'mum', 'emergency'];
-    const currentRoundId = roundIds[room.roundIndex || 0] || 'marry';
-    const totalPlayers = Object.keys(room.players).length;
-    const votesCount = Object.keys(room.votes[currentRoundId] || {}).length;
-
-    if (!force && totalPlayers > 0 && votesCount < totalPlayers) {
-      console.log(`[Host Advance Denied] Only ${votesCount}/${totalPlayers} players have locked`);
-      socket.emit('host_action_error', {
-        message: `Waiting for all guests to lock (${votesCount}/${totalPlayers} ready)`,
-      });
-      return;
-    }
-
     room.phase = 'results';
     room.countdownStartedAt = null;
     room.lastActivityAt = Date.now();

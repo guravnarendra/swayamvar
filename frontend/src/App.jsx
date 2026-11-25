@@ -24,6 +24,78 @@ import { PlayerVoting } from './components/Player/PlayerVoting.jsx';
 import { PlayerResults } from './components/Player/PlayerResults.jsx';
 import { PlayerFinale } from './components/Player/PlayerFinale.jsx';
 
+// Error Boundary to prevent white screen of death on any component crash
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('⚠️ [UI Exception Caught]:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div
+          style={{
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#1a0505',
+            color: '#fff',
+            padding: 24,
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ fontSize: '3rem', marginBottom: 12 }}>🛡️</div>
+          <h2 style={{ color: '#fbbf24', fontSize: '1.8rem', margin: 0 }}>
+            Swayamvar UI Recovery
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.8)', maxWidth: 460, marginTop: 8, fontSize: '0.9rem' }}>
+            A temporary display error occurred. Your room state is safely preserved on the server.
+          </p>
+          <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+            <button
+              onClick={() => this.setState({ hasError: false })}
+              style={{
+                background: '#059669',
+                color: '#fff',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: 8,
+                cursor: 'pointer',
+                fontWeight: 700,
+              }}
+            >
+              🔄 Refresh View
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                background: 'rgba(255,255,255,0.15)',
+                color: '#fbbf24',
+                border: '1px solid #fbbf24',
+                padding: '10px 20px',
+                borderRadius: 8,
+                cursor: 'pointer',
+                fontWeight: 700,
+              }}
+            >
+              Hard Reload Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Path parser for clean URLs: /host, /user, /stats
 function parseRoute() {
   const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
@@ -58,6 +130,14 @@ function parseRoute() {
 }
 
 export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
+  );
+}
+
+function AppContent() {
   const initialRoute = parseRoute();
   const [currentView, setCurrentView] = useState(initialRoute.view);
   const [role, setRole] = useState(initialRoute.role);
@@ -123,6 +203,16 @@ export default function App() {
     socket.on('disconnect', onDisconnect);
     socket.on('state_update', onStateUpdate);
 
+    const onPlayerKicked = ({ playerId: kickedId }) => {
+      const myId = localStorage.getItem(`swayamvar_id_${roomCode}`);
+      if (myId === kickedId) {
+        localStorage.removeItem(`swayamvar_player_${roomCode}`);
+        setMyPlayer(null);
+        alert('You were removed from this room by the host.');
+      }
+    };
+    socket.on('player_kicked_event', onPlayerKicked);
+
     if (socket.connected) {
       setConnected(true);
       socket.emit('join_room', joinData);
@@ -134,6 +224,7 @@ export default function App() {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('state_update', onStateUpdate);
+      socket.off('player_kicked_event', onPlayerKicked);
     };
   }, [roomCode, role, currentView]);
 
@@ -190,6 +281,8 @@ export default function App() {
   const handleHostForceClose = () => socket.emit('host_close_voting', { roomCode, force: true });
   const handleHostNextRound = () => socket.emit('host_next_round', { roomCode });
   const handleHostReplay = () => socket.emit('host_reset_lobby', { roomCode });
+  const handleHostKickPlayer = (playerId) => socket.emit('host_kick_player', { roomCode, playerId });
+  const handleHostPurgeUnlocked = () => socket.emit('host_purge_unlocked', { roomCode });
 
   /* ── Player Handlers ── */
   const handlePlayerJoin = (playerData) => {
@@ -282,6 +375,7 @@ export default function App() {
             state={gameState}
             onBegin={handleHostBegin}
             onStartVoting={handleHostStartVoting}
+            onKickPlayer={handleHostKickPlayer}
           />
         );
       case 'gallery':
@@ -293,13 +387,27 @@ export default function App() {
           />
         );
       case 'voting':
-        return <HostVoting state={gameState} onForceClose={handleHostForceClose} />;
+        return (
+          <HostVoting
+            state={gameState}
+            onForceClose={handleHostForceClose}
+            onKickPlayer={handleHostKickPlayer}
+            onPurgeUnlocked={handleHostPurgeUnlocked}
+          />
+        );
       case 'results':
         return <HostResults state={gameState} onNext={handleHostNextRound} />;
       case 'finale':
         return <HostFinale onReplay={handleHostReplay} />;
       default:
-        return <HostLobby state={gameState} onBegin={handleHostBegin} onStartVoting={handleHostStartVoting} />;
+        return (
+          <HostLobby
+            state={gameState}
+            onBegin={handleHostBegin}
+            onStartVoting={handleHostStartVoting}
+            onKickPlayer={handleHostKickPlayer}
+          />
+        );
     }
   }
 
