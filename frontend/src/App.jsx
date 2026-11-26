@@ -224,6 +224,16 @@ function AppContent() {
     };
     socket.on('room_deleted', onRoomDeleted);
 
+    // If room does not exist in DB, backend emits room_not_found -> redirect to home
+    const onRoomNotFound = ({ roomCode: missingCode, message }) => {
+      localStorage.removeItem(`swayamvar_player_${missingCode}`);
+      localStorage.removeItem(`swayamvar_id_${missingCode}`);
+      localStorage.removeItem(`swayamvar_is_host_${missingCode}`);
+      alert(message || `Room "${missingCode}" does not exist in database. Redirecting to home...`);
+      handleResetToHome();
+    };
+    socket.on('room_not_found', onRoomNotFound);
+
     if (socket.connected) {
       setConnected(true);
       socket.emit('join_room', joinData);
@@ -237,6 +247,7 @@ function AppContent() {
       socket.off('state_update', onStateUpdate);
       socket.off('player_kicked_event', onPlayerKicked);
       socket.off('room_deleted', onRoomDeleted);
+      socket.off('room_not_found', onRoomNotFound);
     };
   }, [roomCode, role, currentView]);
 

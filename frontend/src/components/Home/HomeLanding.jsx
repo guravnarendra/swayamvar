@@ -18,7 +18,7 @@ export function HomeLanding({ onCreateRoom, onJoinRoom }) {
     }
   };
 
-  const handleJoinSubmit = (e) => {
+  const handleJoinSubmit = async (e) => {
     e.preventDefault();
     const clean = inputCode.trim().toUpperCase();
     if (clean.length < 4) {
@@ -26,7 +26,30 @@ export function HomeLanding({ onCreateRoom, onJoinRoom }) {
       return;
     }
     setError('');
-    onJoinRoom(clean);
+    setLoading(true);
+
+    try {
+      const apiBase =
+        window.location.port === '3000'
+          ? `${window.location.protocol}//${window.location.hostname}:4000`
+          : window.location.origin;
+
+      const res = await fetch(`${apiBase}/api/check-room/${clean}`);
+      const data = await res.json();
+
+      if (!data.exists) {
+        setError(`Room "${clean}" does not exist in database!`);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(false);
+      onJoinRoom(clean);
+    } catch {
+      // If offline check fails, proceed with normal socket join which also verifies
+      setLoading(false);
+      onJoinRoom(clean);
+    }
   };
 
   return (

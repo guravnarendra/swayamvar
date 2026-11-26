@@ -79,23 +79,26 @@ function createFreshRoomState(roomCode) {
   };
 }
 
-async function getOrCreateRoom(roomCode) {
-  const code = (roomCode || '1995').toUpperCase();
-  if (!rooms.has(code)) {
-    // Try to load from Supabase if already saved
-    if (db) {
-      try {
-        const { data, error } = await db.from('games').select('state').eq('room_code', `shaadi-${code}`).single();
-        if (data?.state) {
-          rooms.set(code, data.state);
-          console.log(`[DB] Restored room ${code} state from Supabase`);
-          return rooms.get(code);
-        }
-      } catch (_e) {}
-    }
-    rooms.set(code, createFreshRoomState(code));
+// Retrieve room from memory or load from Supabase if previously persisted.
+// Returns null if the room does not exist anywhere (PREVENTS auto-creation on invalid URL/input).
+async function getRoom(roomCode) {
+  if (!roomCode) return null;
+  const code = roomCode.toString().trim().toUpperCase();
+  if (rooms.has(code)) {
+    return rooms.get(code);
   }
-  return rooms.get(code);
+  // Try to load from Supabase if already saved
+  if (db) {
+    try {
+      const { data, error } = await db.from('games').select('state').eq('room_code', `shaadi-${code}`).single();
+      if (data?.state) {
+        rooms.set(code, data.state);
+        console.log(`[DB] Restored room ${code} state from Supabase`);
+        return rooms.get(code);
+      }
+    } catch (_e) {}
+  }
+  return null;
 }
 
 // Persist room state to Supabase asynchronously with comprehensive logging
@@ -283,8 +286,11 @@ app.post('/api/create-room', async (req, res) => {
 // Endpoint to check room status
 app.get('/api/check-room/:code', async (req, res) => {
   const code = (req.params.code || '').trim().toUpperCase();
-  const room = await getOrCreateRoom(code);
-  res.json({ exists: Boolean(room), roomCode: code, phase: room.phase });
+  const room = await getRoom(code);
+  if (!room) {
+    return res.json({ exists: false, roomCode: code });
+  }
+  res.json({ exists: true, roomCode: code, phase: room.phase });
 });
 
 // REST Endpoint to completely delete a specific room and all its votes
@@ -366,20 +372,35 @@ io.on('connection', (socket) => {
   });
 
   socket.on('join_room', async ({ roomCode, role, playerId }) => {
-    const code = (roomCode || '1995').toUpperCase();
+    const code = (roomCode || '').toString().trim().toUpperCase();
+    if (!code) {
+      socket.emit('room_not_found', { roomCode: code, message: 'Invalid room code' });
+      return;
+    }
+
+    const room = await getRoom(code);
+    if (!room) {
+      console.log(`[Socket] Room "${code}" does not exist in DB or memory. Rejecting ${role || 'user'}`);
+      socket.emit('room_not_found', {
+        roomCode: code,
+        message: `Room ${code} does not exist. Redirecting to home...`,
+      });
+      return;
+    }
+
     currentRoom = code;
     currentUserRole = role || 'player';
     currentUserId = playerId;
 
     socket.join(code);
-    const room = await getOrCreateRoom(code);
     socket.emit('state_update', room);
     console.log(`[Socket] ${role} ${playerId || socket.id} joined room ${code}`);
   });
 
   // Host: Open lobby from cover screen
   socket.on('host_open_lobby', async ({ roomCode }) => {
-    const room = await getOrCreateRoom(roomCode || currentRoom);
+    const room = await getRoom(roomCode || currentRoom);
+    if (!room) return socket.emit('room_not_found', { roomCode: roomCode || currentRoom });
     room.phase = 'lobby';
     room.lastActivityAt = Date.now();
     io.to(room.roomCode).emit('state_update', room);
@@ -388,7 +409,8 @@ io.on('connection', (socket) => {
 
   // Player joins with avatar
   socket.on('player_join', async ({ roomCode, player }) => {
-    const room = await getOrCreateRoom(roomCode || currentRoom);
+    const room = await getRoom(roomCode || currentRoom);
+    if (!room) return socket.emit('room_not_found', { roomCode: roomCode || currentRoom });
     if (!player || !player.id) return;
 
     // Protection 1: Max 80 players per room
@@ -438,7 +460,7 @@ io.on('connection', (socket) => {
 
   // Host: Kick a specific fake/inactive player
   socket.on('host_kick_player', async ({ roomCode, playerId }) => {
-    const room = await getOrCreateRoom(roomCode || currentRoom);
+    const room = await getRoom(roomCode || currentRoom);
     if (!room || !playerId || !room.players[playerId]) return;
 
     const kickedName = room.players[playerId].displayName || room.players[playerId].name;
@@ -468,7 +490,7 @@ io.on('connection', (socket) => {
 
   // Host: Purge all inactive guests who haven't locked in the current round
   socket.on('host_purge_unlocked', async ({ roomCode }) => {
-    const room = await getOrCreateRoom(roomCode || currentRoom);
+    const room = await getRoom(roomCode || currentRoom);
     if (!room) return;
 
     const roundIds = ['marry', 'date', 'mum', 'emergency'];
@@ -491,8 +513,8 @@ io.on('connection', (socket) => {
 
   // Player casts and locks vote
   socket.on('player_vote', async ({ roomCode, roundId, playerId, suitorId }, callback) => {
-    const room = await getOrCreateRoom(roomCode || currentRoom);
-    if (!roundId || !playerId || !suitorId) return;
+    const room = await getRoom(roomCode || currentRoom);
+    if (!room || !roundId || !playerId || !suitorId) return;
 
     if (!room.votes[roundId]) {
       room.votes[roundId] = {};
@@ -545,7 +567,8 @@ io.on('connection', (socket) => {
 
   // Host: Show Gallery
   socket.on('host_show_gallery', async ({ roomCode }) => {
-    const room = await getOrCreateRoom(roomCode || currentRoom);
+    const room = await getRoom(roomCode || currentRoom);
+    if (!room) return;
     room.phase = 'gallery';
     room.galleryIndex = 0;
     room.lastActivityAt = Date.now();
@@ -555,7 +578,8 @@ io.on('connection', (socket) => {
 
   // Host: Advance Gallery
   socket.on('host_advance_gallery', async ({ roomCode }) => {
-    const room = await getOrCreateRoom(roomCode || currentRoom);
+    const room = await getRoom(roomCode || currentRoom);
+    if (!room) return;
     room.galleryIndex = (room.galleryIndex || 0) + 1;
     room.lastActivityAt = Date.now();
     io.to(room.roomCode).emit('state_update', room);
@@ -564,7 +588,8 @@ io.on('connection', (socket) => {
 
   // Host: Start Round / Open Voting
   socket.on('host_start_round', async ({ roomCode, roundIndex }) => {
-    const room = await getOrCreateRoom(roomCode || currentRoom);
+    const room = await getRoom(roomCode || currentRoom);
+    if (!room) return;
     room.phase = 'voting';
     room.roundIndex = typeof roundIndex === 'number' ? roundIndex : room.roundIndex;
     room.countdownStartedAt = Date.now();
@@ -575,7 +600,8 @@ io.on('connection', (socket) => {
 
   // Host: Close Voting / Show Results
   socket.on('host_close_voting', async ({ roomCode, force }) => {
-    const room = await getOrCreateRoom(roomCode || currentRoom);
+    const room = await getRoom(roomCode || currentRoom);
+    if (!room) return;
     
     room.phase = 'results';
     room.countdownStartedAt = null;
@@ -586,7 +612,8 @@ io.on('connection', (socket) => {
 
   // Host: Next Round
   socket.on('host_next_round', async ({ roomCode }) => {
-    const room = await getOrCreateRoom(roomCode || currentRoom);
+    const room = await getRoom(roomCode || currentRoom);
+    if (!room) return;
     const nextIdx = (room.roundIndex || 0) + 1;
     if (nextIdx >= 4) {
       room.phase = 'finale';
@@ -640,7 +667,8 @@ io.on('connection', (socket) => {
 
   // Host: Show Finale
   socket.on('host_show_finale', async ({ roomCode }) => {
-    const room = await getOrCreateRoom(roomCode || currentRoom);
+    const room = await getRoom(roomCode || currentRoom);
+    if (!room) return;
     room.phase = 'finale';
     room.lastActivityAt = Date.now();
     io.to(room.roomCode).emit('state_update', room);
@@ -650,6 +678,8 @@ io.on('connection', (socket) => {
   // Host: Reset to Lobby
   socket.on('host_reset_lobby', async ({ roomCode }) => {
     const code = roomCode || currentRoom;
+    const room = await getRoom(code);
+    if (!room) return;
     const fresh = createFreshRoomState(code);
     fresh.phase = 'lobby';
     rooms.set(code, fresh);
