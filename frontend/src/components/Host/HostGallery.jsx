@@ -16,7 +16,6 @@ export function HostGallery({ state, onAdvance, onStartVoting }) {
         display: 'flex',
         flexDirection: 'column',
         boxSizing: 'border-box',
-        overflowY: 'auto',
       }}
     >
       {/* Top Header */}

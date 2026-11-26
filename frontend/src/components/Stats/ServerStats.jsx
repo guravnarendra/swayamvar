@@ -5,14 +5,17 @@ export function ServerStats({ onBack }) {
   const [stats, setStats] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(Date.now());
   const [error, setError] = useState(null);
+  const [wiping, setWiping] = useState(false);
+
+  const getApiBase = () => {
+    return window.location.port === '3000'
+      ? `${window.location.protocol}//${window.location.hostname}:4000`
+      : window.location.origin;
+  };
 
   const fetchStats = async () => {
     try {
-      const backendUrl = window.location.port === '3000'
-        ? `${window.location.protocol}//${window.location.hostname}:4000/api/stats`
-        : `${window.location.origin}/api/stats`;
-
-      const res = await fetch(backendUrl);
+      const res = await fetch(`${getApiBase()}/api/stats`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setStats(data);
@@ -20,6 +23,38 @@ export function ServerStats({ onBack }) {
       setError(null);
     } catch (err) {
       setError('Could not reach backend stats endpoint');
+    }
+  };
+
+  const handleDeleteSingleRoom = async (code) => {
+    if (!window.confirm(`Delete Room ${code}?\n\nThis will permanently delete this room and all its votes from Supabase.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`${getApiBase()}/api/room/${code}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchStats();
+      }
+    } catch (err) {
+      alert('Failed to delete room: ' + err.message);
+    }
+  };
+
+  const handleWipeDatabase = async () => {
+    if (!window.confirm('⚠️ DANGER: Completely wipe the database?\n\nThis will PERMANENTLY ERASE all games and all votes from Supabase, clear all server rooms, and disconnect all players.')) {
+      return;
+    }
+    setWiping(true);
+    try {
+      const res = await fetch(`${getApiBase()}/api/wipe-database`, { method: 'POST' });
+      if (res.ok) {
+        alert('✅ Database wiped cleanly!');
+        fetchStats();
+      }
+    } catch (err) {
+      alert('Failed to wipe database: ' + err.message);
+    } finally {
+      setWiping(false);
     }
   };
 
@@ -85,6 +120,23 @@ export function ServerStats({ onBack }) {
               }}
             >
               🔄 Refresh
+            </button>
+            <button
+              onClick={handleWipeDatabase}
+              disabled={wiping}
+              style={{
+                background: '#dc2626',
+                border: '1px solid #ef4444',
+                color: '#fff',
+                padding: '8px 16px',
+                borderRadius: 10,
+                cursor: wiping ? 'not-allowed' : 'pointer',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                opacity: wiping ? 0.6 : 1,
+              }}
+            >
+              {wiping ? '⏳ Wiping Database…' : '🧹 Wipe All Data & DB'}
             </button>
             {onBack && (
               <button
@@ -210,10 +262,30 @@ export function ServerStats({ onBack }) {
                         </span>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 20, fontSize: '0.85rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: '0.85rem' }}>
                         <span>👥 {r.playersCount} Players</span>
                         <span>🗳️ {r.votesCount} Locked</span>
                         <span style={{ color: '#888', fontSize: '0.75rem' }}>Active: {r.lastActivityAgo}</span>
+
+                        <button
+                          onClick={() => handleDeleteSingleRoom(r.roomCode)}
+                          title={`Delete Room ${r.roomCode} and wipe all its votes from DB`}
+                          style={{
+                            background: 'rgba(239,68,68,0.2)',
+                            border: '1px solid #ef4444',
+                            color: '#fca5a5',
+                            padding: '5px 12px',
+                            borderRadius: 8,
+                            cursor: 'pointer',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          🗑️ Wipe Room
+                        </button>
                       </div>
                     </div>
                   ))}

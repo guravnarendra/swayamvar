@@ -287,7 +287,7 @@ app.get('/api/check-room/:code', async (req, res) => {
   res.json({ exists: Boolean(room), roomCode: code, phase: room.phase });
 });
 
-// REST Endpoint to completely delete a room and all its votes
+// REST Endpoint to completely delete a specific room and all its votes
 app.delete('/api/room/:code', async (req, res) => {
   const code = (req.params.code || '').trim().toUpperCase();
   if (!code) return res.status(400).json({ error: 'Room code required' });
@@ -300,7 +300,29 @@ app.delete('/api/room/:code', async (req, res) => {
   }
   rooms.delete(code);
   io.to(code).emit('room_deleted', { roomCode: code });
+  console.log(`🗑️ [Room Wiped via API] Room ${code} and its database rows deleted`);
   res.json({ success: true, deletedRoom: code });
+});
+
+// REST Endpoint to wipe all game data and votes completely from Supabase (/stats control)
+app.post('/api/wipe-database', async (req, res) => {
+  if (db) {
+    try {
+      await db.from('votes').delete().neq('id', 0);
+    } catch (_e) {}
+    try {
+      await db.from('games').delete().neq('room_code', '');
+    } catch (_e) {}
+  }
+
+  // Notify any connected clients to reset
+  for (const code of rooms.keys()) {
+    io.to(code).emit('room_deleted', { roomCode: code });
+  }
+  rooms.clear();
+
+  console.log('🧹 [DB Wipe Complete] All rooms and votes wiped from Supabase and memory via /stats');
+  res.json({ success: true, message: 'All rooms and votes wiped cleanly' });
 });
 
 io.on('connection', (socket) => {

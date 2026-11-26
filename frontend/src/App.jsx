@@ -399,7 +399,6 @@ function AppContent() {
             onBegin={handleHostBegin}
             onStartVoting={handleHostStartVoting}
             onKickPlayer={handleHostKickPlayer}
-            onDeleteRoom={handleHostDeleteRoom}
           />
         );
       case 'gallery':
@@ -430,7 +429,6 @@ function AppContent() {
             onBegin={handleHostBegin}
             onStartVoting={handleHostStartVoting}
             onKickPlayer={handleHostKickPlayer}
-            onDeleteRoom={handleHostDeleteRoom}
           />
         );
     }

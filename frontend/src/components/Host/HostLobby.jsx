@@ -1,7 +1,7 @@
 import React from 'react';
 import { QRCodeCard } from '../Common/QRCodeCard.jsx';
 
-export function HostLobby({ state, onBegin, onStartVoting, onKickPlayer, onDeleteRoom }) {
+export function HostLobby({ state, onBegin, onStartVoting, onKickPlayer }) {
   const rawPlayers = Object.values(state?.players || {});
   const players = rawPlayers.filter((p) => p && p.id);
   const roomCode = state?.roomCode || '1995';
@@ -15,7 +15,6 @@ export function HostLobby({ state, onBegin, onStartVoting, onKickPlayer, onDelet
         display: 'flex',
         flexDirection: 'column',
         boxSizing: 'border-box',
-        overflowY: 'auto',
       }}
     >
       {/* Header */}
@@ -65,30 +64,6 @@ export function HostLobby({ state, onBegin, onStartVoting, onKickPlayer, onDelet
             SCAN TO TAKE YOUR SEAT
           </div>
           <QRCodeCard roomCode={roomCode} size={260} />
-
-          {/* Delete Room Button */}
-          {onDeleteRoom && (
-            <button
-              type="button"
-              onClick={onDeleteRoom}
-              style={{
-                marginTop: 20,
-                background: 'rgba(239, 68, 68, 0.08)',
-                border: '1px solid rgba(239, 68, 68, 0.25)',
-                color: '#dc2626',
-                padding: '8px 18px',
-                borderRadius: 999,
-                fontSize: '0.78rem',
-                fontWeight: 800,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              🗑️ Delete Room & Wipe DB
-            </button>
-          )}
         </div>
 
         {/* Guest Roster */}

@@ -26,7 +26,6 @@ export function HostFinale({ onReplay }) {
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
-        overflowY: 'auto',
       }}
     >
       <Petals count={26} />

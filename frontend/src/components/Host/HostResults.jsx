@@ -31,7 +31,6 @@ export function HostResults({ state, onNext }) {
         display: 'flex',
         flexDirection: 'column',
         boxSizing: 'border-box',
-        overflowY: 'auto',
       }}
     >
       {/* Header */}
