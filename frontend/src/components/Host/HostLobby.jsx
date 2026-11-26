@@ -1,7 +1,7 @@
 import React from 'react';
 import { QRCodeCard } from '../Common/QRCodeCard.jsx';
 
-export function HostLobby({ state, onBegin, onStartVoting, onKickPlayer, onAddBots }) {
+export function HostLobby({ state, onBegin, onStartVoting, onKickPlayer, onDeleteRoom }) {
   const rawPlayers = Object.values(state?.players || {});
   const players = rawPlayers.filter((p) => p && p.id);
   const roomCode = state?.roomCode || '1995';
@@ -65,6 +65,30 @@ export function HostLobby({ state, onBegin, onStartVoting, onKickPlayer, onAddBo
             SCAN TO TAKE YOUR SEAT
           </div>
           <QRCodeCard roomCode={roomCode} size={260} />
+
+          {/* Delete Room Button */}
+          {onDeleteRoom && (
+            <button
+              type="button"
+              onClick={onDeleteRoom}
+              style={{
+                marginTop: 20,
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
+                color: '#dc2626',
+                padding: '8px 18px',
+                borderRadius: 999,
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              🗑️ Delete Room & Wipe DB
+            </button>
+          )}
         </div>
 
         {/* Guest Roster */}
@@ -81,7 +105,7 @@ export function HostLobby({ state, onBegin, onStartVoting, onKickPlayer, onAddBo
             border: '2px solid rgba(251,191,36,0.3)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
               <span className="display" style={{ fontSize: '3rem', fontWeight: 700, color: '#9b1c1c', lineHeight: 1 }}>
                 {players.length}
@@ -90,46 +114,9 @@ export function HostLobby({ state, onBegin, onStartVoting, onKickPlayer, onAddBo
                 {players.length === 1 ? 'guest' : 'guests'} seated
               </span>
             </div>
-
-            {onAddBots && (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ fontSize: '0.7rem', color: '#78350f', fontWeight: 700 }}>Test Simulation:</span>
-                <button
-                  type="button"
-                  onClick={() => onAddBots(5)}
-                  title="Add 5 test players"
-                  style={{
-                    background: 'rgba(251,191,36,0.15)',
-                    border: '1px solid rgba(251,191,36,0.5)',
-                    color: '#92400e',
-                    padding: '4px 10px',
-                    borderRadius: 999,
-                    fontSize: '0.72rem',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                  }}
-                >
-                  🤖 +5
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onAddBots(20)}
-                  title="Add 20 test players"
-                  style={{
-                    background: 'rgba(251,191,36,0.15)',
-                    border: '1px solid rgba(251,191,36,0.5)',
-                    color: '#92400e',
-                    padding: '4px 10px',
-                    borderRadius: 999,
-                    fontSize: '0.72rem',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                  }}
-                >
-                  🤖 +20
-                </button>
-              </div>
-            )}
+            <span style={{ fontSize: '.8rem', color: '#059669', fontWeight: 800 }}>
+              ● welcoming live…
+            </span>
           </div>
 
           <div

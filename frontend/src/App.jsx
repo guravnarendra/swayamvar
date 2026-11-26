@@ -213,6 +213,17 @@ function AppContent() {
     };
     socket.on('player_kicked_event', onPlayerKicked);
 
+    const onRoomDeleted = ({ roomCode: deletedCode }) => {
+      if (deletedCode === roomCode) {
+        localStorage.removeItem(`swayamvar_player_${roomCode}`);
+        localStorage.removeItem(`swayamvar_id_${roomCode}`);
+        localStorage.removeItem(`swayamvar_is_host_${roomCode}`);
+        alert(`Room ${roomCode} has been deleted.`);
+        handleResetToHome();
+      }
+    };
+    socket.on('room_deleted', onRoomDeleted);
+
     if (socket.connected) {
       setConnected(true);
       socket.emit('join_room', joinData);
@@ -225,6 +236,7 @@ function AppContent() {
       socket.off('disconnect', onDisconnect);
       socket.off('state_update', onStateUpdate);
       socket.off('player_kicked_event', onPlayerKicked);
+      socket.off('room_deleted', onRoomDeleted);
     };
   }, [roomCode, role, currentView]);
 
@@ -280,10 +292,20 @@ function AppContent() {
   const handleHostStartVoting = () => socket.emit('host_start_round', { roomCode, roundIndex: 0 });
   const handleHostForceClose = () => socket.emit('host_close_voting', { roomCode, force: true });
   const handleHostNextRound = () => socket.emit('host_next_round', { roomCode });
-  const handleHostReplay = () => socket.emit('host_reset_lobby', { roomCode });
+  const handleHostNewGame = () => {
+    localStorage.removeItem(`swayamvar_is_host_${roomCode}`);
+    handleResetToHome();
+  };
+  const handleHostDeleteRoom = () => {
+    if (window.confirm(`Permanently delete Room ${roomCode}?\n\nThis will completely erase all votes and room data from the database.`)) {
+      socket.emit('host_delete_room', { roomCode }, () => {
+        localStorage.removeItem(`swayamvar_is_host_${roomCode}`);
+        handleResetToHome();
+      });
+    }
+  };
   const handleHostKickPlayer = (playerId) => socket.emit('host_kick_player', { roomCode, playerId });
   const handleHostPurgeUnlocked = () => socket.emit('host_purge_unlocked', { roomCode });
-  const handleHostAddBots = (count) => socket.emit('host_add_bots', { roomCode, count });
 
   /* ── Player Handlers ── */
   const handlePlayerJoin = (playerData) => {
@@ -377,7 +399,7 @@ function AppContent() {
             onBegin={handleHostBegin}
             onStartVoting={handleHostStartVoting}
             onKickPlayer={handleHostKickPlayer}
-            onAddBots={handleHostAddBots}
+            onDeleteRoom={handleHostDeleteRoom}
           />
         );
       case 'gallery':
@@ -400,7 +422,7 @@ function AppContent() {
       case 'results':
         return <HostResults state={gameState} onNext={handleHostNextRound} />;
       case 'finale':
-        return <HostFinale onReplay={handleHostReplay} />;
+        return <HostFinale onReplay={handleHostNewGame} />;
       default:
         return (
           <HostLobby
@@ -408,7 +430,7 @@ function AppContent() {
             onBegin={handleHostBegin}
             onStartVoting={handleHostStartVoting}
             onKickPlayer={handleHostKickPlayer}
-            onAddBots={handleHostAddBots}
+            onDeleteRoom={handleHostDeleteRoom}
           />
         );
     }
@@ -440,7 +462,7 @@ function AppContent() {
     case 'results':
       return <PlayerResults state={gameState} gender={myPlayer.gender} myVotes={myVotes} />;
     case 'finale':
-      return <PlayerFinale myVotes={myVotes} player={myPlayer} />;
+      return <PlayerFinale myVotes={myVotes} player={myPlayer} onHome={handleResetToHome} />;
     default:
       return <PlayerCharacterWait player={myPlayer} />;
   }

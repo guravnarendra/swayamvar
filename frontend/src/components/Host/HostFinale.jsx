@@ -109,8 +109,12 @@ export function HostFinale({ onReplay }) {
         </div>
 
         <div style={{ marginTop: 28 }}>
-          <button className="btn-wedding" onClick={onReplay} style={{ fontSize: '1.1rem', padding: '14px 44px' }}>
-            Play Again 🔄
+          <button
+            className="btn-wedding"
+            onClick={onReplay}
+            style={{ fontSize: '1.15rem', padding: '14px 48px' }}
+          >
+            Start New Game ➔
           </button>
         </div>
       </div>

@@ -287,46 +287,21 @@ app.get('/api/check-room/:code', async (req, res) => {
   res.json({ exists: Boolean(room), roomCode: code, phase: room.phase });
 });
 
-// Automatic voting trigger for simulated test bots
-function triggerBotVotes(room, roundIndex) {
-  const roundIds = ['marry', 'date', 'mum', 'emergency'];
-  const suitors = ['cash', 'debt', 'gold', 'realestate', 'equity', 'alternatives'];
-  const currentRoundId = roundIds[roundIndex || 0] || 'marry';
+// REST Endpoint to completely delete a room and all its votes
+app.delete('/api/room/:code', async (req, res) => {
+  const code = (req.params.code || '').trim().toUpperCase();
+  if (!code) return res.status(400).json({ error: 'Room code required' });
 
-  const botPlayers = Object.values(room.players || {}).filter((p) => p && p.isBot);
-  botPlayers.forEach((bot, idx) => {
-    // Stagger vote locks naturally between 1s and 4.5s
-    const delay = 1000 + Math.random() * 2500 + (idx * 90);
-    setTimeout(async () => {
-      if (room.phase !== 'voting' || room.roundIndex !== roundIndex) return;
-      if (!room.votes[currentRoundId]) room.votes[currentRoundId] = {};
-      if (room.votes[currentRoundId][bot.id]) return;
-
-      const pickedSuitor = suitors[Math.floor(Math.random() * suitors.length)];
-      room.votes[currentRoundId][bot.id] = pickedSuitor;
-      room.lastActivityAt = Date.now();
-
-      const votesCount = Object.keys(room.votes[currentRoundId]).length;
-      const totalPlayers = Object.keys(room.players).length;
-      const allLocked = votesCount >= totalPlayers;
-
-      io.to(room.roomCode).emit('state_update', room);
-      io.to(room.roomCode).emit('vote_locked_event', {
-        playerId: bot.id,
-        playerName: bot.displayName,
-        titleEmoji: bot.titleEmoji,
-        roundId: currentRoundId,
-        suitorId: pickedSuitor,
-        votesCount,
-        totalPlayers,
-        allLocked,
-      });
-
-      persistIndividualVote(room.roomCode, bot.id, bot.displayName, currentRoundId, pickedSuitor);
-      schedulePersistRoomState(room);
-    }, delay);
-  });
-}
+  if (db) {
+    try {
+      await db.from('votes').delete().eq('room_code', `shaadi-${code}`);
+      await db.from('games').delete().eq('room_code', `shaadi-${code}`);
+    } catch (_e) {}
+  }
+  rooms.delete(code);
+  io.to(code).emit('room_deleted', { roomCode: code });
+  res.json({ success: true, deletedRoom: code });
+});
 
 io.on('connection', (socket) => {
   const deviceId = socket.handshake.auth?.deviceId || socket.id;
@@ -574,7 +549,6 @@ io.on('connection', (socket) => {
     room.lastActivityAt = Date.now();
     io.to(room.roomCode).emit('state_update', room);
     await persistRoomState(room);
-    triggerBotVotes(room, room.roundIndex);
   });
 
   // Host: Close Voting / Show Results
@@ -598,55 +572,48 @@ io.on('connection', (socket) => {
       room.phase = 'voting';
       room.roundIndex = nextIdx;
       room.countdownStartedAt = Date.now();
-      triggerBotVotes(room, nextIdx);
     }
     room.lastActivityAt = Date.now();
     io.to(room.roomCode).emit('state_update', room);
     await persistRoomState(room);
   });
 
-  // Host: Add simulated test bots to easily test with X players
-  socket.on('host_add_bots', async ({ roomCode, count = 5 }) => {
-    const room = await getOrCreateRoom(roomCode || currentRoom);
-    if (!room) return;
+  // Host: Completely delete the room, its votes from 'votes' table, and state from 'games' table
+  socket.on('host_delete_room', async ({ roomCode }, callback) => {
+    const code = (roomCode || currentRoom || '').toUpperCase();
+    if (!code) return;
 
-    const BOT_TEMPLATES = [
-      { name: 'FD Lover Fufaji', titleEmoji: '👴', color: '#0891b2' },
-      { name: 'SIP Sneha', titleEmoji: '📈', color: '#16a34a' },
-      { name: 'Gold Nani', titleEmoji: '👵', color: '#d97706' },
-      { name: 'Crypto Bunty', titleEmoji: '🚀', color: '#7c3aed' },
-      { name: 'Real Estate Chacha', titleEmoji: '🏘️', color: '#dc2626' },
-      { name: 'Index Fund Ronny', titleEmoji: '📊', color: '#ea580c' },
-      { name: 'Tax Saver Tanvi', titleEmoji: '📑', color: '#0f766e' },
-      { name: 'Angel Investor Aman', titleEmoji: '🦄', color: '#be185d' },
-      { name: 'Budget Mama', titleEmoji: '👛', color: '#ca8a04' },
-      { name: 'Hedge Fund Harry', titleEmoji: '🧐', color: '#4f46e5' },
-    ];
+    console.log(`🗑️ [Room Delete] Completely wiping room ${code} and its database records...`);
 
-    const currentTotal = Object.keys(room.players || {}).length;
-    const addCount = Math.min(Number(count) || 5, 80 - currentTotal);
+    // 1. Delete all individual rows from Supabase 'votes' table
+    if (db) {
+      try {
+        const { error: vErr } = await db.from('votes').delete().eq('room_code', `shaadi-${code}`);
+        if (vErr) console.error(`❌ [DB Error] Failed to delete votes for ${code}:`, vErr.message);
+        else console.log(`🗑️ [DB] Wiped all votes for room shaadi-${code}`);
+      } catch (err) {
+        console.error('❌ [DB Vote Delete Exception]:', err.message);
+      }
 
-    for (let i = 0; i < addCount; i++) {
-      const t = BOT_TEMPLATES[(currentTotal + i) % BOT_TEMPLATES.length];
-      const botId = `bot_${Date.now()}_${i}_${Math.random().toString(36).substring(2, 5)}`;
-      room.players[botId] = {
-        id: botId,
-        isBot: true,
-        name: `${t.name} #${currentTotal + i + 1}`,
-        displayName: `${t.name} #${currentTotal + i + 1}`,
-        color: t.color,
-        gender: i % 2 === 0 ? 'M' : 'F',
-        titleEmoji: t.titleEmoji,
-        titleAction: 'is evaluating suitors',
-        titleImg: '',
-        joinedAt: Date.now(),
-      };
+      // 2. Delete the room row from Supabase 'games' table
+      try {
+        const { error: gErr } = await db.from('games').delete().eq('room_code', `shaadi-${code}`);
+        if (gErr) console.error(`❌ [DB Error] Failed to delete game for ${code}:`, gErr.message);
+        else console.log(`🗑️ [DB] Wiped game row shaadi-${code}`);
+      } catch (err) {
+        console.error('❌ [DB Game Delete Exception]:', err.message);
+      }
     }
 
-    room.lastActivityAt = Date.now();
-    console.log(`🤖 [Bots Added] Spawned ${addCount} test bots in room ${room.roomCode} (Total: ${Object.keys(room.players).length})`);
-    io.to(room.roomCode).emit('state_update', room);
-    schedulePersistRoomState(room);
+    // 3. Clear from in-memory cache
+    rooms.delete(code);
+
+    // 4. Broadcast room_deleted event so all users (host + players) redirect to Home
+    io.to(code).emit('room_deleted', { roomCode: code });
+
+    if (typeof callback === 'function') {
+      callback({ success: true, roomCode: code });
+    }
   });
 
   // Host: Show Finale

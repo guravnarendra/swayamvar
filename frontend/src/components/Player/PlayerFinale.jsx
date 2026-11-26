@@ -1,7 +1,7 @@
 import React from 'react';
 import { ROUNDS, SUITORS, suitorVariant, suitorName } from '../../gameData.js';
 
-export function PlayerFinale({ myVotes, player }) {
+export function PlayerFinale({ myVotes, player, onHome }) {
   const gender = player?.gender || 'P';
 
   return (
@@ -75,6 +75,18 @@ export function PlayerFinale({ myVotes, player }) {
           It's building a portfolio where every personality knows its role."
         </p>
       </div>
+
+      {onHome && (
+        <div style={{ marginTop: 20 }}>
+          <button
+            onClick={onHome}
+            className="btn-wedding"
+            style={{ width: '100%', padding: '12px', fontSize: '1rem' }}
+          >
+            Start New Game ➔
+          </button>
+        </div>
+      )}
     </div>
   );
 }
