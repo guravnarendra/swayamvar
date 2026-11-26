@@ -158,6 +158,15 @@ function AppContent() {
   });
 
   const [myVotes, setMyVotes] = useState({});
+  const [redirectNotice, setRedirectNotice] = useState(null);
+
+  const triggerAutoRedirect = (title, message, icon = '🔍') => {
+    setRedirectNotice({ title, message, icon });
+    setTimeout(() => {
+      setRedirectNotice(null);
+      handleResetToHome();
+    }, 1800);
+  };
 
   // Sync with browser URL / room connection
   useEffect(() => {
@@ -208,7 +217,7 @@ function AppContent() {
       if (myId === kickedId) {
         localStorage.removeItem(`swayamvar_player_${roomCode}`);
         setMyPlayer(null);
-        alert('You were removed from this room by the host.');
+        triggerAutoRedirect('Removed from Room', 'You were removed from this room by the host.', '👋');
       }
     };
     socket.on('player_kicked_event', onPlayerKicked);
@@ -218,19 +227,21 @@ function AppContent() {
         localStorage.removeItem(`swayamvar_player_${roomCode}`);
         localStorage.removeItem(`swayamvar_id_${roomCode}`);
         localStorage.removeItem(`swayamvar_is_host_${roomCode}`);
-        alert(`Room ${roomCode} has been deleted.`);
-        handleResetToHome();
+        triggerAutoRedirect('Room Deleted', `Room "${roomCode}" has been deleted from the database.`, '🗑️');
       }
     };
     socket.on('room_deleted', onRoomDeleted);
 
-    // If room does not exist in DB, backend emits room_not_found -> redirect to home
+    // If room does not exist in DB, backend emits room_not_found -> auto redirect to home without alerts
     const onRoomNotFound = ({ roomCode: missingCode, message }) => {
       localStorage.removeItem(`swayamvar_player_${missingCode}`);
       localStorage.removeItem(`swayamvar_id_${missingCode}`);
       localStorage.removeItem(`swayamvar_is_host_${missingCode}`);
-      alert(message || `Room "${missingCode}" does not exist in database. Redirecting to home...`);
-      handleResetToHome();
+      triggerAutoRedirect(
+        'Room Not Found',
+        message || `Room "${missingCode}" does not exist in the database.`,
+        '🔍'
+      );
     };
     socket.on('room_not_found', onRoomNotFound);
 
@@ -345,6 +356,76 @@ function AppContent() {
       suitorId,
     });
   };
+
+  /* ── In-UI Auto-Redirect Screen (Zero popups, auto-redirects smoothly) ── */
+  if (redirectNotice) {
+    return (
+      <div
+        className="screen bg-bfiw-dark fade"
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+          textAlign: 'center',
+          color: '#fff',
+        }}
+      >
+        <div
+          className="invite fade"
+          style={{
+            maxWidth: 480,
+            width: '100%',
+            background: 'linear-gradient(160deg, rgba(80,10,15,0.92), rgba(20,0,5,0.96))',
+            border: '2px solid rgba(251,191,36,0.5)',
+            borderRadius: 24,
+            padding: '40px 30px',
+            boxShadow: '0 24px 70px rgba(0,0,0,0.85)',
+          }}
+        >
+          <div style={{ fontSize: '3.4rem', marginBottom: 12 }}>{redirectNotice.icon}</div>
+          <div className="caps" style={{ fontSize: '0.7rem', color: '#fbbf24', letterSpacing: '0.3em' }}>
+            Swayamvar Notice
+          </div>
+          <h2 className="display" style={{ fontSize: '2.4rem', color: '#fbbf24', margin: '6px 0 12px' }}>
+            {redirectNotice.title}
+          </h2>
+          <p className="serif ital" style={{ color: '#fde68a', fontSize: '1.15rem', margin: '0 0 26px', lineHeight: 1.4 }}>
+            {redirectNotice.message}
+          </p>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 12,
+              color: '#fff',
+              fontSize: '0.9rem',
+              fontWeight: 700,
+              background: 'rgba(255,255,255,0.1)',
+              padding: '10px 24px',
+              borderRadius: 999,
+              border: '1px solid rgba(251,191,36,0.3)',
+            }}
+          >
+            <span
+              style={{
+                width: 14,
+                height: 14,
+                border: '2px solid rgba(251,191,36,0.3)',
+                borderTopColor: '#fbbf24',
+                borderRadius: '50%',
+                display: 'inline-block',
+                animation: 'spin 0.8s linear infinite',
+              }}
+            />
+            <span>Auto-redirecting to Home…</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /* ── Stats Dashboard View (/stats) ── */
   if (currentView === 'stats') {
