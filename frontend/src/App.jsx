@@ -283,6 +283,7 @@ function AppContent() {
   const handleHostReplay = () => socket.emit('host_reset_lobby', { roomCode });
   const handleHostKickPlayer = (playerId) => socket.emit('host_kick_player', { roomCode, playerId });
   const handleHostPurgeUnlocked = () => socket.emit('host_purge_unlocked', { roomCode });
+  const handleHostAddBots = (count) => socket.emit('host_add_bots', { roomCode, count });
 
   /* ── Player Handlers ── */
   const handlePlayerJoin = (playerData) => {
@@ -376,6 +377,7 @@ function AppContent() {
             onBegin={handleHostBegin}
             onStartVoting={handleHostStartVoting}
             onKickPlayer={handleHostKickPlayer}
+            onAddBots={handleHostAddBots}
           />
         );
       case 'gallery':
@@ -406,6 +408,7 @@ function AppContent() {
             onBegin={handleHostBegin}
             onStartVoting={handleHostStartVoting}
             onKickPlayer={handleHostKickPlayer}
+            onAddBots={handleHostAddBots}
           />
         );
     }

@@ -1,7 +1,7 @@
 import React from 'react';
 import { QRCodeCard } from '../Common/QRCodeCard.jsx';
 
-export function HostLobby({ state, onBegin, onStartVoting, onKickPlayer }) {
+export function HostLobby({ state, onBegin, onStartVoting, onKickPlayer, onAddBots }) {
   const rawPlayers = Object.values(state?.players || {});
   const players = rawPlayers.filter((p) => p && p.id);
   const roomCode = state?.roomCode || '1995';
@@ -81,16 +81,55 @@ export function HostLobby({ state, onBegin, onStartVoting, onKickPlayer }) {
             border: '2px solid rgba(251,191,36,0.3)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 16 }}>
-            <span className="display" style={{ fontSize: '3rem', fontWeight: 700, color: '#9b1c1c' }}>
-              {players.length}
-            </span>
-            <span className="serif" style={{ fontSize: '1.3rem', color: '#78350f' }}>
-              {players.length === 1 ? 'guest' : 'guests'} seated
-            </span>
-            <span style={{ marginLeft: 'auto', fontSize: '.8rem', color: '#059669', fontWeight: 800 }}>
-              ● welcoming live…
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+              <span className="display" style={{ fontSize: '3rem', fontWeight: 700, color: '#9b1c1c', lineHeight: 1 }}>
+                {players.length}
+              </span>
+              <span className="serif" style={{ fontSize: '1.2rem', color: '#78350f' }}>
+                {players.length === 1 ? 'guest' : 'guests'} seated
+              </span>
+            </div>
+
+            {onAddBots && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ fontSize: '0.7rem', color: '#78350f', fontWeight: 700 }}>Test Simulation:</span>
+                <button
+                  type="button"
+                  onClick={() => onAddBots(5)}
+                  title="Add 5 test players"
+                  style={{
+                    background: 'rgba(251,191,36,0.15)',
+                    border: '1px solid rgba(251,191,36,0.5)',
+                    color: '#92400e',
+                    padding: '4px 10px',
+                    borderRadius: 999,
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  🤖 +5
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onAddBots(20)}
+                  title="Add 20 test players"
+                  style={{
+                    background: 'rgba(251,191,36,0.15)',
+                    border: '1px solid rgba(251,191,36,0.5)',
+                    color: '#92400e',
+                    padding: '4px 10px',
+                    borderRadius: 999,
+                    fontSize: '0.72rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  🤖 +20
+                </button>
+              </div>
+            )}
           </div>
 
           <div
